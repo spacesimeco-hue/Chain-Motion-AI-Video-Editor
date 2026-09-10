@@ -1,6 +1,6 @@
 # Frameforge
 
-A local video editor built around scene-based ComfyUI generation. The Python service owns media, project persistence, job scheduling, and export; the browser is the editing surface. No cloud account or frontend build service is required.
+A local video editor built around scene-based ComfyUI generation using Minimax H3. Organizes local media references, and projects, in a video editor that allows easy generation of long continuous AI generated videos. The editor also includes a voice clip creator powered by LTX 2.3 for creating dynamic sounding voice clips from voice references.
 
 ## Start
 
