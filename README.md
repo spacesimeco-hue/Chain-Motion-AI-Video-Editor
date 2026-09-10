@@ -31,7 +31,7 @@ The default library is `data/` beside the application. The server listens only o
 
 ## Editing workflow
 
-1. Open **Settings**, enter your ComfyUI URL, and use **Test connection & discover models**. The initial URL is `http://192.168.88.253:8188`. Model filenames are editable with suggestions from the connected installation.
+1. Open **Settings**, enter your ComfyUI URL(ie. localhost:8188, ect), and use **Test connection & discover models**. Model filenames are editable with suggestions from the connected installation.
 2. Import images, videos, or audio. Click assets to rename them, assign a folder, and add tags. Search across all three fields. Every import is copied into the portable library.
 3. Add scenes, then segments. Scene settings contain a common prompt and shared references. Shared references apply to every segment in that scene.
 4. Write a segment prompt, add references, and set its duration. Drag either segment edge to adjust its length, or enter the value in properties. Drag segments to reorder them or move them between scenes. Shift-click segments to select a batch.
