@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Frameforge · Local video studio</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header class="appbar">
+      <a class="brand" href="/" aria-label="Frameforge home"
+        ><span class="brand-mark">F</span> FRAMEFORGE
+        <span class="beta">LOCAL STUDIO</span></a
+      >
+      <div class="project-switch">
+        <select id="project-select" aria-label="Current project"></select
+        ><button id="new-project" class="icon" title="New project">＋</button
+        ><span id="save-state">Saved locally</span>
+      </div>
+      <div class="header-actions">
+        <button id="connection" class="connection">
+          <i></i> Checking ComfyUI</button
+        ><button id="settings-btn" class="icon" title="Settings">⚙</button
+        ><button id="export-btn" class="primary">
+          Export film <span>↗</span>
+        </button>
+      </div>
+    </header>
+    <nav class="workspace-nav">
+      <div class="tabs">
+        <button class="active" id="edit-tab">▤ &nbsp; Editor</button
+        ><button id="speech-btn">≋ &nbsp; Speech studio</button
+        ><button id="jobs-btn">
+          ☷ &nbsp; Generation queue
+          <span class="count" id="jobs-count">0</span>
+        </button>
+      </div>
+      <span class="subtle" id="project-summary">24 FPS · LOCAL WORKSPACE</span>
+    </nav>
+    <main class="editor">
+      <aside class="library">
+        <div class="panel-title">
+          <h2>Asset library <span id="asset-count" class="count">0</span></h2>
+          <button id="import-btn" class="small">＋ Import</button>
+        </div>
+        <div class="search-wrap">
+          <span>⌕</span
+          ><input
+            id="asset-search"
+            placeholder="Search names, folders, tags…"
+            aria-label="Search assets"
+          />
+        </div>
+        <div class="asset-filters" id="asset-filters">
+          <button class="active" data-kind="all">All</button
+          ><button data-kind="image">Images</button
+          ><button data-kind="video">Video</button
+          ><button data-kind="audio">Audio</button>
+        </div>
+        <select id="folder-filter" aria-label="Filter asset folder">
+          <option value="">All folders</option>
+        </select>
+        <div id="asset-list" class="asset-grid"></div>
+        <div class="library-footer">
+          <span class="dot"></span> Your media stays in your library.<br /><span
+            class="subtle"
+            >Drop files here to import. Drag assets onto a segment to reference
+            them.</span
+          >
+        </div>
+      </aside>
+      <section class="viewer-panel">
+        <div class="viewer-header">
+          <div>
+            <span class="eyebrow">PROGRAM MONITOR</span>
+            <div id="viewer-title">Scene 01 <span>/</span> Segment 01</div>
+          </div>
+          <span id="viewer-resolution" class="badge">608 × 352</span>
+        </div>
+        <div class="viewer" id="viewer">
+          <video id="preview" playsinline preload="metadata"></video>
+          <div id="preview-empty">
+            <div class="view-symbol">▻</div>
+            <h2>Your next scene starts here.</h2>
+            <p>
+              Write a prompt. Add your references.<br />Generate a take directly
+              on the timeline.
+            </p>
+            <button id="empty-import" class="secondary">
+              ＋ Import a video
+            </button>
+          </div>
+          <span class="monitor-label">FRAMEFORGE / PREVIEW</span>
+        </div>
+        <div class="transport">
+          <div>
+            <button id="prev-segment" class="icon" title="Previous segment">
+              Ⅰ◁</button
+            ><button id="play" class="play" title="Play / pause (Space)">
+              ▶</button
+            ><button id="next-segment" class="icon" title="Next segment">
+              ▷Ⅰ
+            </button>
+          </div>
+          <span id="timecode" class="mono">00:00:00:00</span
+          ><input
+            id="scrubber"
+            type="range"
+            min="0"
+            max="1"
+            step="0.001"
+            value="0"
+            aria-label="Preview playhead"
+          /><span id="preview-duration" class="mono subtle">00:00</span
+          ><button
+            id="capture-btn"
+            class="small"
+            title="Save the current preview frame as a reference"
+          >
+            ▣ Capture frame
+          </button>
+        </div>
+        <div class="takebar">
+          <span class="eyebrow">MAIN TAKE</span
+          ><select id="main-take" aria-label="Main video take">
+            <option value="">No video selected</option></select
+          ><span class="latent-status" id="latent-status">No latent yet</span
+          ><button id="asset-details" class="icon" title="Inspect main video">
+            ↗
+          </button>
+        </div>
+        <div class="generation-strip">
+          <span
+            ><span class="spark">✦</span> <b>Make every frame intentional.</b>
+            <span class="subtle"
+              >Scene assets keep your shots connected.</span
+            ></span
+          ><button id="queue-scene" class="small">Queue scene →</button>
+        </div>
+      </section>
+      <aside class="inspector">
+        <div class="panel-title">
+          <h2>Segment properties</h2>
+          <span class="badge">H3</span>
+        </div>
+        <div id="properties"></div>
+      </aside>
+      <section class="timeline">
+        <div class="timeline-toolbar">
+          <div class="timeline-name">
+            <h2>Timeline</h2>
+            <span id="timeline-length" class="badge">3.50 s</span
+            ><button id="undo" class="icon" title="Undo (Ctrl+Z)">↶</button
+            ><button id="redo" class="icon" title="Redo (Ctrl+Shift+Z)">
+              ↷
+            </button>
+          </div>
+          <div class="timeline-actions">
+            <button id="add-scene" class="small">＋ Scene</button
+            ><button id="add-segment" class="small">＋ Segment</button
+            ><label class="zoom"
+              >−
+              <input
+                id="zoom"
+                type="range"
+                min="25"
+                max="120"
+                value="55"
+                aria-label="Timeline zoom"
+              />
+              ＋</label
+            ><button id="queue-selected" class="primary">
+              ✦ Queue selected
+            </button>
+          </div>
+        </div>
+        <div class="timeline-body">
+          <div class="scene-list" id="scene-list"></div>
+          <div class="tracks-scroll" id="tracks-scroll">
+            <div id="ruler" class="ruler"></div>
+            <div id="tracks"></div>
+          </div>
+        </div>
+        <footer class="statusbar">
+          <span id="timeline-help"
+            >Drag an edge to resize · Shift-click to select multiple · Drag
+            clips to reorder</span
+          ><span id="queue-status">Ready to create</span>
+        </footer>
+      </section>
+    </main>
+    <input
+      id="file-input"
+      type="file"
+      multiple
+      accept="image/*,video/*,audio/*"
+      hidden
+    />
+    <dialog id="modal"><div id="modal-content"></div></dialog>
+    <div id="toasts" role="status" aria-live="polite"></div>
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>

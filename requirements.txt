@@ -1,0 +1,7 @@
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+python-multipart>=0.0.18
+requests>=2.32
+websocket-client>=1.8
+imageio-ffmpeg>=0.6
+Pillow>=10
