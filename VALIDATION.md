@@ -62,3 +62,9 @@ Graphs, job records, media, and latents are retained in `data/`. Test references
 Timeline drop update: verified video asset drag creates a timeline segment in the browser; verified full-height library and timeline have aligned bottom edges. Focused JavaScript checks passed for shared-reference capacities, duplicate exclusion, video-only empty timeline drops, and file-to-segment reference routing. Native OS file drops were not automated.
 
 Automatic continuation encoding and latest-take selection: 21 tests passed, covering stale encoding replacement, matching active-job reuse, valid latent reuse, and replacing the main take while preserving take history and resetting source trim. No generation graph changes or new GPU sampling tests were needed.
+
+LAN hosting: 26 unit tests pass. A temporary isolated server bound to all IPv4 interfaces served the editor via 192.168.1.10:8788; same-origin project creation succeeded and cross-origin writes returned 403. The test server was stopped. Verified ID generation without secure-context randomUUID. Access from a separate physical device depends on local firewall/network routing and was not tested.
+
+Cancellation and workspace updates: 29 tests pass, including empty-success ComfyUI cancellation responses, malformed-response diagnostics, portable project export/import with media and ID remapping, and project deletion preserving assets. Browser verified 0.5 MP calculation (928 × 544, 0.505 actual MP at the current aspect ratio), saved-project controls, and no console errors. No GPU generations submitted for these UI changes.
+
+Disconnected cancellation: 32 tests pass. Regression checks cover cancellation while offline, disconnect during history polling, progression to the next queued job, and interrupting only an owned active prompt. Local cancellation is terminal even when remote confirmation fails; monitoring HTTP requests use bounded five-second timeouts and cancellation calls use three-second timeouts.

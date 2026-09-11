@@ -1613,3 +1613,74 @@ summary::marker {
 .seed-control button {
   flex: 0 0 auto;
 }
+
+#toasts {
+  top: 116px;
+  right: 14px;
+  bottom: auto;
+  left: auto;
+  transform: none;
+  max-width: 290px;
+  gap: 4px;
+  pointer-events: none;
+}
+.toast {
+  padding: 6px 10px;
+  font-size: 10px;
+  line-height: 1.35;
+  box-shadow: 0 2px 8px #0004;
+}
+#jobs-count.queue-active {
+  background: #bd3548;
+  color: white;
+}
+.reference-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 7px;
+}
+.reference-grid .reference-slot {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  margin: 0;
+  padding: 7px;
+}
+.reference-grid .reference-slot > span:not(.reference-icon) {
+  flex: 1 1 100%;
+  font-size: 10px;
+}
+.reference-icon {
+  width: 36px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.clip-references {
+  position: absolute;
+  bottom: 4px;
+  left: 8px;
+  right: 45px;
+  display: flex;
+  gap: 3px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.clip-references img,
+.clip-references span {
+  width: 20px;
+  height: 18px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 3px;
+  background: #252b32;
+  text-align: center;
+}
+.clip:has(.clip-references:not(:empty)) .clip-meta {
+  display: none;
+}
+.take-item a {
+  color: var(--accent);
+  text-decoration: none;
+  padding: 5px;
+}

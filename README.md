@@ -29,6 +29,16 @@ python run.py --port 8787 --data /path/to/my-film-library
 
 The default library is `data/` beside the application. The server listens only on loopback by default. The browser talks to this local service, which talks to ComfyUI; ComfyUI does not need browser CORS changes. Run one editor service per library. This is a local, single-user application; it does not provide authentication for internet hosting.
 
+## Host on your LAN
+
+- **Windows:** run `start-lan.bat`.
+- **macOS / Linux:** run `./start-lan.sh`.
+- Or run `python run.py --lan` (also accepts `--port` and `--data`).
+
+Stop an existing editor using the same library before starting the LAN launcher. Startup prints LAN addresses; open `http://<host-computer-LAN-IP>:8787` on another device on the same network. Use the address of the editor computer, not the ComfyUI computer. The editor host connects to ComfyUI for all clients. If a connection is blocked, allow the chosen TCP port through the host firewall on the private network and check Wi-Fi client isolation. The host computer and editor process must stay running.
+
+LAN mode listens on all IPv4 interfaces and has no login. Use it on a trusted network without internet port forwarding: connected users can access the library, edit projects, and queue jobs. All clients share one library, so avoid simultaneous edits to the same project. To bind only one network interface, use `python run.py --host <host-LAN-IP>` instead of `--lan`. Normal launchers continue to listen only on localhost.
+
 ## Editing workflow
 
 1. Open **Settings**, enter your ComfyUI URL(ie. localhost:8188, ect), and use **Test connection & discover models**. Model filenames are editable with suggestions from the connected installation.
@@ -104,3 +114,10 @@ Queueing a continuation automatically adds any required source encoding ahead of
 Use **Randomize** beside the seed in segment Generation settings or Speech studio to choose a new seed. The number stays visible and editable, and remains fixed until changed again. Segment seed changes save with the project; speech seeds stay in the current speech draft.
 
 Enable **Randomize each generation** in segment Generation settings or Speech studio for a fresh seed on every queued generation. Segment preferences save with the project; speech preferences stay in its current draft. Disable the toggle to use the entered seed. Each job records its actual seed in the queue details and workflow.
+
+## Workspace controls
+
+- Settings → **Target megapixels** → **Apply MP** calculates dimensions using the current aspect ratio and multiples of 32. Save settings to apply the resolution.
+- Generated takes have individual download arrows in Segment properties. References appear in a thumbnail grid and as small icons along timeline segments.
+- Queuing generations keeps the current editor view; the queue count turns red while work is pending. Compact top-right notices do not intercept clicks.
+- **Manage**, beside the saved-project dropdown, provides Rename, Export project, Import project, and Delete project. Project ZIP archives include referenced media, generated takes, and local latents. Imports create a separate project with new IDs. Deletion keeps media in the asset library and is blocked while project jobs are active.

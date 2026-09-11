@@ -22,7 +22,12 @@ class Comfy:
             r = requests.get(self.url+path, timeout=timeout) if body is None else requests.post(self.url+path, json=body, timeout=timeout)
             if not r.ok:
                 raise ValueError(f'ComfyUI {path}: {r.status_code} {r.text[:2400]}')
-            return r.json()
+            if not r.content.strip():
+                return {}
+            try:
+                return r.json()
+            except ValueError as e:
+                raise ValueError(f'ComfyUI {path} returned invalid JSON (HTTP {r.status_code}).') from e
         except requests.RequestException as e:
             raise ValueError(f'Cannot reach ComfyUI at {self.url}: {e}') from e
 
@@ -196,6 +201,9 @@ class JobRunner:
     def monitor(self, j, c, ws):
         last_poll, misses = 0, 0
         while not self.stop.is_set():
+            if self.cancelled(j['id']):
+                self.store.update_job(j['id'], status='cancelled', finished=time.time())
+                return None
             if ws:
                 try:
                     raw = ws.recv()
@@ -215,14 +223,16 @@ class JobRunner:
                 continue
             last_poll = time.time()
             try:
-                history = c.request('/history/'+j['prompt_id']).get(j['prompt_id'])
+                history = c.request('/history/'+j['prompt_id'], timeout=5).get(j['prompt_id'])
+                if self.cancelled(j['id']):
+                    return None
                 if history:
                     status = history.get('status', {})
                     if status.get('status_str') == 'error':
                         raise RuntimeError(json.dumps(status.get('messages',[]))[-4000:])
                     if status.get('completed'):
                         return history
-                q = c.request('/queue')
+                q = c.request('/queue', timeout=5)
                 present = any(row[1]==j['prompt_id'] for row in q.get('queue_running',[])+q.get('queue_pending',[]))
                 if not present and self.cancelled(j['id']):
                     self.store.update_job(j['id'],status='cancelled',finished=time.time())
@@ -235,6 +245,9 @@ class JobRunner:
                 if misses > 10:
                     raise RuntimeError('Job is absent from ComfyUI queue and history. It may have been removed externally; no automatic resubmission was made.')
             except ValueError as e:
+                if self.cancelled(j['id']):
+                    self.store.update_job(j['id'], status='cancelled', finished=time.time())
+                    return None
                 self.store.update_job(j['id'], stage='Connection lost; retrying history', connection_error=str(e))
                 self.stop.wait(3)
         return None
@@ -290,12 +303,17 @@ class JobRunner:
         j = next(x for x in snap['jobs'] if x['id']==jid)
         if j['status'] in ('completed','failed','cancelled'):
             return j
-        self.store.update_job(jid,status='cancelling' if j['status']!='queued' else 'cancelled')
+        # Local cancellation must not depend on a response from ComfyUI.
+        self.store.update_job(jid, status='cancelled', stage='Cancelled', finished=time.time())
         if not j.get('prompt_id'):
             return
         c = Comfy(j['comfy_url'])
-        c.request('/queue', {'delete':[j['prompt_id']]})
-        # Interrupt only if our prompt is the active job. Never clear the shared queue.
-        running = c.request('/queue').get('queue_running',[])
-        if any(row[1]==j['prompt_id'] for row in running):
-            c.request('/interrupt', {'prompt_id':j['prompt_id']})
+        try:
+            c.request('/queue', {'delete':[j['prompt_id']]}, timeout=3)
+            # Interrupt only our own active prompt; never clear another client's queue.
+            running = c.request('/queue', timeout=3).get('queue_running',[])
+            if any(row[1]==j['prompt_id'] for row in running):
+                c.request('/interrupt', {'prompt_id':j['prompt_id']}, timeout=3)
+        except ValueError as e:
+            self.store.update_job(jid, stage='Cancelled locally · ComfyUI cancellation could not be confirmed',
+                                  connection_error=str(e), remote_cancel_unconfirmed=True)

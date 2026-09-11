@@ -99,6 +99,91 @@ def create_project(body:dict):
     return p
 
 
+@app.get('/api/projects/{pid}/export')
+def export_project(pid:str):
+    snap=store.snapshot()
+    p=snap['projects'][pid]
+    ids=set()
+    for sc in p['scenes']:
+        ids.update(sc['refs'])
+        for seg in sc['segments']:
+            ids.update(seg['refs']+seg['takes'])
+            ids.update(x for x in [seg.get('main'),seg.get('continuation')] if x)
+    assets={aid:copy.deepcopy(snap['assets'][aid]) for aid in ids if aid in snap['assets']}
+    path=store.root/'exports'/f'project-{uid()}.zip'
+    with zipfile.ZipFile(path,'w',zipfile.ZIP_STORED) as z:
+        files=set()
+        for a in assets.values():
+            files.update(a[k] for k in ('file','thumbnail') if a.get(k))
+            if a.get('latent',{}).get('local'): files.add(a['latent']['local'])
+        for sc in p['scenes']:
+            for seg in sc['segments']:
+                if seg.get('encoded_latent',{}).get('local'): files.add(seg['encoded_latent']['local'])
+        for rel in files:
+            source=store.asset_path({'file':rel})
+            if source.is_file(): z.write(source,rel)
+        z.writestr('project.json',json.dumps(dict(project=p,assets=assets)))
+    return FileResponse(path,filename='frameforge-project.zip')
+
+
+@app.post('/api/projects/import')
+def import_project(file:UploadFile=File(...)):
+    written=[]
+    try:
+        with zipfile.ZipFile(file.file) as z:
+            manifest=json.loads(z.read('project.json'))
+            p=manifest['project']; assets=manifest['assets']
+            mapping={aid:uid() for aid in assets}
+            def restore(rel,folder):
+                target=store.root/folder/(uid()+Path(rel).suffix)
+                with z.open(rel) as source, target.open('wb') as dest:
+                    written.append(target)
+                    shutil.copyfileobj(source,dest,1024*1024)
+                return str(target.relative_to(store.root))
+            def latent(value):
+                if value and value.get('local'):
+                    value['local']=restore(value['local'],'latents')
+                if value and value.get('source'):
+                    value['source']['asset_id']=mapping.get(value['source']['asset_id'],value['source']['asset_id'])
+            for old,a in assets.items():
+                a['id']=mapping[old]
+                a['file']=restore(a['file'],'assets')
+                if a.get('thumbnail'): a['thumbnail']=restore(a['thumbnail'],'assets')
+                latent(a.get('latent'))
+            p.update(id=uid(),version=0)
+            for sc in p['scenes']:
+                sc['id']=uid();sc['refs']=[mapping[x] for x in sc['refs']]
+                for seg in sc['segments']:
+                    seg['id']=uid()
+                    for key in ('refs','takes'): seg[key]=[mapping[x] for x in seg[key]]
+                    for key in ('main','continuation'):
+                        if seg.get(key):seg[key]=mapping[seg[key]]
+                    latent(seg.get('encoded_latent'))
+            imported={a['id']:a for a in assets.values()}
+            check_project(p,imported)
+        with store.lock:
+            store.data['assets'].update(imported)
+            store.data['projects'][p['id']]=p
+            store.save()
+        return p
+    except Exception as e:
+        for path in written:path.unlink(missing_ok=True)
+        raise ValueError(f'Cannot import project archive: {e}') from e
+
+
+@app.delete('/api/projects/{pid}')
+def delete_project(pid:str):
+    with store.lock:
+        if any(j.get('project_id')==pid and j['status'] not in ('completed','failed','cancelled') for j in store.data['jobs']):
+            raise ValueError('Cancel or finish this project’s jobs before deleting it.')
+        if pid not in store.data['projects']:raise HTTPException(404,'Project not found')
+        del store.data['projects'][pid]
+        if not store.data['projects']:
+            p=project();store.data['projects'][p['id']]=p
+        store.save()
+    return {'ok':True}
+
+
 @app.put('/api/projects/{pid}')
 def save_project(pid:str, body:dict):
     with store.lock:

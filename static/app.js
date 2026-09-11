@@ -8,7 +8,13 @@ const esc = (s) =>
         c
       ],
   );
-const id = () => crypto.randomUUID().replaceAll("-", "");
+// getRandomValues also works over plain HTTP on a LAN.
+const id = () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+};
 const clone = (x) => structuredClone(x);
 const fmt = (n) => (Number(n) || 0).toFixed(2) + " s";
 const url = (aid, thumb = false) =>
@@ -68,7 +74,9 @@ function toast(message, error = false) {
   el.className = "toast" + (error ? " error" : "");
   el.textContent = message;
   $("#toasts").append(el);
-  setTimeout(() => el.remove(), error ? 10000 : 4500);
+  while ($("#toasts").children.length > 3)
+    $("#toasts").firstElementChild.remove();
+  setTimeout(() => el.remove(), error ? 6500 : 2500);
 }
 function guard(fn) {
   return async (...args) => {
@@ -232,6 +240,10 @@ function renderAll() {
   renderPreview();
 }
 function renderHeader() {
+  $("#jobs-count").classList.toggle(
+    "queue-active",
+    state.jobs.some((j) => activeStatuses.includes(j.status)),
+  );
   $("#project-select").innerHTML = Object.values(state.projects)
     .map(
       (p) =>
@@ -306,15 +318,19 @@ function refIds() {
 }
 function refList(ids, shared = false) {
   let counts = { image: 0, video: 0, audio: 0 };
-  return ids
-    .map((aid) => {
-      const a = state.assets[aid];
-      if (!a) return "";
-      const index = ++counts[a.kind];
-      const tag = `${{ image: "Picture", video: "Video", audio: "Audio" }[a.kind]} ${index}`;
-      return `<div class="reference-slot ${shared ? "shared" : ""}"><code>${tag}</code><span title="${esc(a.name)}">${esc(a.name)}</span><button data-insert="${esc(tag)}" title="Insert reference tag into prompt">↙</button>${shared ? "<small>scene</small>" : `<button data-remove="${aid}" title="Remove reference">×</button>`}</div>`;
-    })
-    .join("");
+  return (
+    '<div class="reference-grid">' +
+    ids
+      .map((aid) => {
+        const a = state.assets[aid];
+        if (!a) return "";
+        const index = ++counts[a.kind];
+        const tag = `${{ image: "Picture", video: "Video", audio: "Audio" }[a.kind]} ${index}`;
+        return `<div class="reference-slot ${shared ? "shared" : ""}">${a.kind === "audio" ? '<span class="reference-icon">♫</span>' : `<img class="reference-icon" src="${url(aid, true)}" alt="${esc(a.name)}">`}<code>${tag}</code><span title="${esc(a.name)}">${esc(a.name)}</span><button data-insert="${esc(tag)}" title="Insert reference tag into prompt">↙</button>${shared ? "<small>scene</small>" : `<button data-remove="${aid}" title="Remove reference">×</button>`}</div>`;
+      })
+      .join("") +
+    "</div>"
+  );
 }
 function renderProperties() {
   const s = segment(),
@@ -342,7 +358,7 @@ function renderProperties() {
       )
       .join(
         "",
-      )}</select></label></div></div><div><div class="inspector-section" style="margin-top:0"><div class="section-heading"><h3>References</h3><button id="pick-refs" class="small">＋ Add</button></div><p class="hint">${counts.image}/9 images &nbsp; ${counts.video}/3 video &nbsp; ${counts.audio}/3 audio</p>${refIds().length ? refList(refIds()).replace(/<button data-remove="([^"]+)" title="Remove reference">×<\/button>/g, (m, aid) => (shared.includes(aid) ? "<small>scene</small>" : m)) : '<div class="ref-empty">Drop assets here or add from the library</div>'}<button id="scene-settings" class="small" style="margin-top:9px;width:100%">▧ Shared scene assets & settings</button></div><details><summary>Generation settings</summary><div class="row"><div class="field"><label for="segment-seed">Seed</label><div class="seed-control"><input id="segment-seed" data-prop="seed" type="number" min="0" max="9007199254740991" step="1" value="${s.seed}"><button id="randomize-segment-seed" type="button" class="small" title="Choose a new random seed" aria-label="Randomize segment seed">⚄ Randomize</button></div><label class="check"><input id="auto-segment-seed" type="checkbox" ${s.randomize_seed ? "checked" : ""}> Randomize each generation</label></div><label class="field"><span>Steps</span><input data-prop="steps" type="number" min="1" max="100" value="${s.steps}"></label></div><p class="hint">${project.width} × ${project.height} · H3 · 24 fps. Resolution is shared across the project for compatible latents.</p></details><div class="inspector-section"><div class="section-heading"><h3>Generated takes</h3><span class="count">${s.takes.length}</span></div><div class="take-list">${s.takes.map((aid) => (state.assets[aid] ? `<div class="take-item"><img src="${url(aid, true)}" alt=""><span>${esc(state.assets[aid].name)}</span><button class="small" data-take="${aid}">${s.main === aid ? "Main" : "Use"}</button></div>` : "")).join("") || '<p class="hint">Every generated take stays in your asset library. Choose any take as the main video.</p>'}</div></div><div class="inspector-section inspector-actions"><button id="duplicate-segment" class="small">Duplicate</button><button id="delete-segment" class="small danger">Delete segment</button></div></div>`;
+      )}</select></label></div></div><div><div class="inspector-section" style="margin-top:0"><div class="section-heading"><h3>References</h3><button id="pick-refs" class="small">＋ Add</button></div><p class="hint">${counts.image}/9 images &nbsp; ${counts.video}/3 video &nbsp; ${counts.audio}/3 audio</p>${refIds().length ? refList(refIds()).replace(/<button data-remove="([^"]+)" title="Remove reference">×<\/button>/g, (m, aid) => (shared.includes(aid) ? "<small>scene</small>" : m)) : '<div class="ref-empty">Drop assets here or add from the library</div>'}<button id="scene-settings" class="small" style="margin-top:9px;width:100%">▧ Shared scene assets & settings</button></div><details><summary>Generation settings</summary><div class="row"><div class="field"><label for="segment-seed">Seed</label><div class="seed-control"><input id="segment-seed" data-prop="seed" type="number" min="0" max="9007199254740991" step="1" value="${s.seed}"><button id="randomize-segment-seed" type="button" class="small" title="Choose a new random seed" aria-label="Randomize segment seed">⚄ Randomize</button></div><label class="check"><input id="auto-segment-seed" type="checkbox" ${s.randomize_seed ? "checked" : ""}> Randomize each generation</label></div><label class="field"><span>Steps</span><input data-prop="steps" type="number" min="1" max="100" value="${s.steps}"></label></div><p class="hint">${project.width} × ${project.height} · H3 · 24 fps. Resolution is shared across the project for compatible latents.</p></details><div class="inspector-section"><div class="section-heading"><h3>Generated takes</h3><span class="count">${s.takes.length}</span></div><div class="take-list">${s.takes.map((aid) => (state.assets[aid] ? `<div class="take-item"><img src="${url(aid, true)}" alt=""><span>${esc(state.assets[aid].name)}</span><button class="small" data-take="${aid}">${s.main === aid ? "Main" : "Use"}</button><a class="small" href="${url(aid)}" download="${esc(state.assets[aid].name)}${esc(state.assets[aid].file.slice(state.assets[aid].file.lastIndexOf(".")))}" title="Download this take" aria-label="Download ${esc(state.assets[aid].name)}">↓</a></div>` : "")).join("") || '<p class="hint">Every generated take stays in your asset library. Choose any take as the main video.</p>'}</div></div><div class="inspector-section inspector-actions"><button id="duplicate-segment" class="small">Duplicate</button><button id="delete-segment" class="small danger">Delete segment</button></div></div>`;
   if (s.main) {
     const section = document.createElement("div");
     section.className = "inspector-section";
@@ -712,7 +728,7 @@ async function encodeSelectedSegment() {
   });
   toast("Segment latent encoding queued.");
   await refresh();
-  showJobs();
+  // Queuing keeps the current editing view.
 }
 function addContinuation() {
   const sc = scene(),
@@ -986,7 +1002,7 @@ async function showAsset(aid) {
       await save();
       await api(`/api/assets/${aid}/encode`, { project_id: project.id });
       toast("Latent encoding queued.");
-      showJobs();
+      toast("Encoding queued.");
       refresh();
     });
   }
@@ -1022,7 +1038,7 @@ async function showSettings() {
   const settings = state.settings;
   modal(
     "Local studio settings",
-    `<label class="field"><span>Project name</span><input id="settings-project" value="${esc(project.name)}"></label><div class="row"><label class="field"><span>Project width · multiple of 32</span><input id="settings-width" type="number" min="32" step="32" value="${project.width}"></label><label class="field"><span>Project height · multiple of 32</span><input id="settings-height" type="number" min="32" step="32" value="${project.height}"></label></div><label class="field"><span>ComfyUI address</span><input id="comfy-url" value="${esc(settings.comfy_url)}" placeholder="http://127.0.0.1:8188"></label><div class="row"><button id="test-connection" class="small">Test connection & discover models</button><span id="connection-result" class="hint"></span></div><details><summary>Model filenames</summary>${Object.entries(
+    `<label class="field"><span>Project name</span><input id="settings-project" value="${esc(project.name)}"></label><div class="row"><label class="field"><span>Project width · multiple of 32</span><input id="settings-width" type="number" min="32" step="32" value="${project.width}"></label><label class="field"><span>Project height · multiple of 32</span><input id="settings-height" type="number" min="32" step="32" value="${project.height}"></label></div><div class="row"><label class="field"><span>Target megapixels</span><input id="settings-mp" type="number" min="0.01" max="16.77" step="0.1" value="${((project.width * project.height) / 1e6).toFixed(2)}"></label><button id="apply-mp" class="small">Apply MP</button></div><p class="hint" id="mp-result">Uses the current width-to-height ratio; dimensions round to multiples of 32.</p><label class="field"><span>ComfyUI address</span><input id="comfy-url" value="${esc(settings.comfy_url)}" placeholder="http://127.0.0.1:8188"></label><div class="row"><button id="test-connection" class="small">Test connection & discover models</button><span id="connection-result" class="hint"></span></div><details><summary>Model filenames</summary>${Object.entries(
       settings.models,
     )
       .filter(([k]) => k !== "ltx_identity_lora")
@@ -1060,6 +1076,29 @@ async function showSettings() {
     } finally {
       b.disabled = false;
     }
+  });
+  $("#apply-mp").onclick = guard(() => {
+    const mp = Number($("#settings-mp").value);
+    const w = Number($("#settings-width").value),
+      h = Number($("#settings-height").value);
+    if (!(mp >= 0.01 && mp <= 16.77 && w > 0 && h > 0))
+      throw Error("Enter valid megapixels and dimensions.");
+    const width = Math.max(
+      32,
+      Math.round(Math.sqrt((mp * 1e6 * w) / h) / 32) * 32,
+    );
+    const height = Math.max(
+      32,
+      Math.round(Math.sqrt((mp * 1e6 * h) / w) / 32) * 32,
+    );
+    if (width > 4096 || height > 4096)
+      throw Error(
+        "This aspect ratio exceeds 4096 pixels; choose fewer megapixels.",
+      );
+    $("#settings-width").value = width;
+    $("#settings-height").value = height;
+    $("#mp-result").textContent =
+      `${width} × ${height} · ${((width * height) / 1e6).toFixed(3)} MP. Save settings to apply.`;
   });
   $("#settings-save").onclick = guard(async () => {
     const width = Number($("#settings-width").value),
@@ -1112,8 +1151,12 @@ function bindJobs() {
     (b) =>
       (b.onclick = guard(async () => {
         b.disabled = true;
-        await api("/api/jobs/" + b.dataset.cancelJob + "/cancel", {});
-        await refresh();
+        try {
+          await api("/api/jobs/" + b.dataset.cancelJob + "/cancel", {});
+          await refresh();
+        } finally {
+          b.disabled = false;
+        }
       })),
   );
   $$("[data-result]").forEach(
@@ -1182,7 +1225,7 @@ function showSpeech() {
       "Speech continuation queued. The voice prefix will be trimmed automatically.",
     );
     await refresh();
-    showJobs();
+    $("#modal").close();
   });
 }
 function showExport() {
@@ -1210,7 +1253,7 @@ async function queue(ids) {
   await api("/api/queue", { project_id: project.id, segment_ids: ids });
   toast(`${ids.length} generation${ids.length > 1 ? "s" : ""} queued.`);
   await refresh();
-  showJobs();
+  // The queue badge reflects pending work without interrupting editing.
 }
 async function refresh() {
   if (refreshing) return;
@@ -1616,6 +1659,61 @@ $("#project-select").onchange = guard(async (e) => {
   localStorage.setItem("frameforge-project", pid);
   renderAll();
 });
+$("#manage-projects").onclick = () => {
+  modal(
+    "Saved projects",
+    `<label class="field"><span>Project name</span><input id="rename-project" value="${esc(project.name)}"></label><div class="row"><button id="rename-save" class="small">Rename</button><button id="project-download" class="small">Export project</button><button id="project-import" class="small">Import project</button><button id="project-delete" class="small danger">Delete project</button></div><input id="project-file" type="file" accept=".zip" hidden><p class="hint">Project archives include media, takes, and saved latents. Deleting a project keeps its media in the asset library.</p>`,
+  );
+  $("#rename-save").onclick = guard(async () => {
+    edit(() => (project.name = $("#rename-project").value), false);
+    await save();
+    renderHeader();
+    toast("Project renamed.");
+  });
+  $("#project-download").onclick = guard(async () => {
+    await save();
+    const a = document.createElement("a");
+    a.href = `/api/projects/${project.id}/export`;
+    a.download = "frameforge-project.zip";
+    a.click();
+  });
+  $("#project-import").onclick = () => $("#project-file").click();
+  const switchTo = async (pid) => {
+    state = await api("/api/state");
+    project = clone(state.projects[pid] || Object.values(state.projects)[0]);
+    savedProject = clone(project);
+    sceneId = project.scenes[0]?.id;
+    segmentId = scene()?.segments[0]?.id;
+    selected = new Set(segmentId ? [segmentId] : []);
+    undo = [];
+    redo = [];
+    dirty = false;
+    localStorage.setItem("frameforge-project", project.id);
+    $("#modal").close();
+    renderAll();
+  };
+  $("#project-file").onchange = guard(async (e) => {
+    if (!e.target.files.length) return;
+    await save();
+    const form = new FormData();
+    form.append("file", e.target.files[0]);
+    const p = await api("/api/projects/import", form);
+    await switchTo(p.id);
+    toast("Project imported.");
+  });
+  $("#project-delete").onclick = guard(async () => {
+    if (
+      !confirm(
+        `Delete project “${project.name}”? Export it first if you need a backup. Media stays in the library.`,
+      )
+    )
+      return;
+    await save();
+    await api(`/api/projects/${project.id}`, {}, "DELETE");
+    await switchTo(null);
+    toast("Project deleted.");
+  });
+};
 $("#new-project").onclick = guard(async () => {
   await save();
   const p = await api("/api/projects", {
