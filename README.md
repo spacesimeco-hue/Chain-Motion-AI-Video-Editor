@@ -1,3 +1,11 @@
+
+# Quick Start Video
+<a href="https://youtu.be/kAdkr4p6UZE">
+  <img width="400" alt="Get Started Video" src="https://github.com/user-attachments/assets/2de7febb-5c68-435a-83f7-014a00f36729" />
+</a>
+
+
+
 # Frameforge
 
 Frameforge is a local video studio for creating scene-based AI videos with ComfyUI. Organize references, write prompts, generate and compare takes, connect motion between segments, stage 3D reference images, and export a finished film from one browser workspace.
